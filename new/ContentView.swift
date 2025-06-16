@@ -168,12 +168,19 @@ struct HomeView: View {
                         Section(header: Text("待办事项")) {
                             ForEach(todoItems) { item in
                                 TodoItemRowView(todoItem: item)
-                                    .swipeActions {
+                                    .swipeActions(edge: .trailing) {
                                         Button(role: .destructive) {
                                             delete(todoItem: item)
                                         } label: {
                                             Label("删除", systemImage: "trash")
                                         }
+                                        
+                                        Button {
+                                            todoToEdit = item
+                                        } label: {
+                                            Label("编辑", systemImage: "pencil")
+                                        }
+                                        .tint(.accentColor)
                                     }
                             }
                         }
