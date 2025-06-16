@@ -17,14 +17,18 @@ class Habit {
     var isCompleted: Bool
     var streak: Int
     var creationDate: Date
+    var isReminderOn: Bool
+    var reminderTime: Date
 
-    init(name: String, icon: String, isCompleted: Bool = false, streak: Int = 0) {
+    init(name: String, icon: String, isCompleted: Bool = false, streak: Int = 0, isReminderOn: Bool = false, reminderTime: Date = Date()) {
         self.id = UUID()
         self.name = name
         self.icon = icon
         self.isCompleted = isCompleted
         self.streak = streak
         self.creationDate = .now
+        self.isReminderOn = isReminderOn
+        self.reminderTime = reminderTime
     }
 }
 
@@ -166,6 +170,8 @@ struct HomeView: View {
     }
 
     private func delete(habit: Habit) {
+        // 在删除数据前，先取消它的通知
+        NotificationManager.shared.cancelNotification(for: habit)
         modelContext.delete(habit)
     }
 
@@ -279,24 +285,35 @@ struct TodoRowView: View {
 struct AddHabitView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
-    
+
     @State private var name = ""
-    @State private var icon = "star.fill"
-    let icons = ["star.fill", "heart.fill", "flame.fill", "flag.fill", "bell.fill", "book.fill", "figure.walk.circle.fill"]
-    
+    @State private var selectedIcon = "star.fill"
+    @State private var isReminderOn = false
+    @State private var reminderTime = Date()
+
+    let icons = ["star.fill", "heart.fill", "flame.fill", "flag.fill", "bell.fill", "book.fill", "figure.walk", "trophy.fill"]
+
     var body: some View {
         NavigationView {
             Form {
-                TextField("习惯名称", text: $name)
+                Section(header: Text("基础信息")) {
+                    TextField("习惯名称", text: $name)
+                    
+                    Picker("选择图标", selection: $selectedIcon) {
+                        ForEach(icons, id: \.self) { icon in
+                            Image(systemName: icon).tag(icon)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                }
                 
-                Picker("选择图标", selection: $icon) {
-                    ForEach(icons, id: \.self) { iconName in
-                        Image(systemName: iconName)
-                            .font(.title2)
-                            .tag(iconName)
+                Section(header: Text("提醒设置")) {
+                    Toggle("开启提醒", isOn: $isReminderOn)
+                    
+                    if isReminderOn {
+                        DatePicker("提醒时间", selection: $reminderTime, displayedComponents: .hourAndMinute)
                     }
                 }
-                .pickerStyle(.palette)
             }
             .navigationTitle("添加新习惯")
             .toolbar {
@@ -304,9 +321,11 @@ struct AddHabitView: View {
                     Button("取消") { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("保存") {
-                        let newHabit = Habit(name: name, icon: icon)
+                    Button("完成") {
+                        let newHabit = Habit(name: name, icon: selectedIcon, isReminderOn: isReminderOn, reminderTime: reminderTime)
                         modelContext.insert(newHabit)
+                        NotificationManager.shared.scheduleNotification(for: newHabit)
+                        try? modelContext.save()
                         dismiss()
                     }
                     .disabled(name.isEmpty)
@@ -316,74 +335,48 @@ struct AddHabitView: View {
     }
 }
 
-struct AddTodoView: View {
-    @Environment(\.modelContext) private var modelContext
-    @Environment(\.dismiss) private var dismiss
-    
-    @State private var title = ""
-    
-    var body: some View {
-        NavigationView {
-            Form {
-                TextField("待办事项标题", text: $title)
-            }
-            .navigationTitle("添加新待办")
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("取消") { dismiss() }
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("保存") {
-                        let newTodo = TodoItem(title: title)
-                        modelContext.insert(newTodo)
-                        dismiss()
-                    }
-                    .disabled(title.isEmpty)
-                }
-            }
-        }
-    }
-}
-
-
-struct ContentView_Previews: PreviewProvider {
-    static var previews: some View {
-        ContentView()
-            .modelContainer(for: [Habit.self, TodoItem.self], inMemory: true)
-    }
-}
-
-// MARK: - Edit Item Views
-
 struct EditHabitView: View {
     @Environment(\.dismiss) private var dismiss
     @Bindable var habit: Habit
 
-    let icons = ["star.fill", "heart.fill", "flame.fill", "flag.fill", "bell.fill", "book.fill", "figure.walk.circle.fill"]
+    let icons = ["star.fill", "heart.fill", "flame.fill", "flag.fill", "bell.fill", "book.fill", "figure.walk", "trophy.fill"]
 
     var body: some View {
         NavigationView {
             Form {
-                TextField("习惯名称", text: $habit.name)
-                Picker("选择图标", selection: $habit.icon) {
-                    ForEach(icons, id: \.self) { iconName in
-                        Image(systemName: iconName)
-                            .font(.title2)
-                            .tag(iconName)
+                Section(header: Text("基础信息")) {
+                    TextField("习惯名称", text: $habit.name)
+                    
+                    Picker("选择图标", selection: $habit.icon) {
+                        ForEach(icons, id: \.self) { icon in
+                            Image(systemName: icon).tag(icon)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                }
+                
+                Section(header: Text("提醒设置")) {
+                    Toggle("开启提醒", isOn: $habit.isReminderOn)
+                    
+                    if habit.isReminderOn {
+                        DatePicker("提醒时间", selection: $habit.reminderTime, displayedComponents: .hourAndMinute)
                     }
                 }
-                .pickerStyle(.palette)
             }
             .navigationTitle("编辑习惯")
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("完成") { dismiss() }
+                    Button("完成") {
+                        // 先取消旧的通知，再根据新的设置安排通知
+                        NotificationManager.shared.cancelNotification(for: habit)
+                        NotificationManager.shared.scheduleNotification(for: habit)
+                        dismiss()
+                    }
                 }
             }
         }
     }
 }
-
 struct EditTodoView: View {
     @Environment(\.dismiss) private var dismiss
     @Bindable var todo: TodoItem

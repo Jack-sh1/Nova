@@ -23,6 +23,9 @@ struct newApp: App {
         .onChange(of: scenePhase) { oldPhase, newPhase in
             // 3. 当应用变为活跃状态时，执行重置检查
             if newPhase == .active {
+                // 请求通知权限
+                NotificationManager.shared.requestAuthorization()
+                // 执行每日重置检查
                 DailyResetManager.resetHabitsIfNeeded(context: modelContext)
             }
         }
