@@ -74,6 +74,7 @@ struct HomeView: View {
     
     @State private var showingAddHabitSheet = false
     @State private var showingAddTodoSheet = false
+    @State private var showingVoiceInputSheet = false
     @State private var habitToEdit: Habit?
     @State private var todoToEdit: TodoItem?
 
@@ -138,6 +139,14 @@ struct HomeView: View {
             .listStyle(GroupedListStyle())
             .navigationTitle("主页")
             .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button {
+                        showingVoiceInputSheet = true
+                    } label: {
+                        Image(systemName: "mic.fill")
+                            .font(.title2)
+                    }
+                }
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Menu {
                         Button("添加新习惯") { showingAddHabitSheet = true }
@@ -152,6 +161,7 @@ struct HomeView: View {
             .sheet(isPresented: $showingAddTodoSheet) { AddTodoView() }
             .sheet(item: $habitToEdit, content: EditHabitView.init)
             .sheet(item: $todoToEdit, content: EditTodoView.init)
+            .sheet(isPresented: $showingVoiceInputSheet, content: VoiceInputView.init)
             .onAppear(perform: addSampleDataIfNeeded)
         }
     }
@@ -329,35 +339,6 @@ struct AddHabitView: View {
                         dismiss()
                     }
                     .disabled(name.isEmpty)
-                }
-            }
-        }
-    }
-}
-
-struct AddTodoView: View {
-    @Environment(\.modelContext) private var modelContext
-    @Environment(\.dismiss) private var dismiss
-
-    @State private var title = ""
-
-    var body: some View {
-        NavigationView {
-            Form {
-                TextField("待办事项", text: $title)
-            }
-            .navigationTitle("添加新待办")
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("取消") { dismiss() }
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("完成") {
-                        let newTodo = TodoItem(title: title) // isCompleted 会默认为 false
-                        modelContext.insert(newTodo)
-                        dismiss()
-                    }
-                    .disabled(title.isEmpty)
                 }
             }
         }

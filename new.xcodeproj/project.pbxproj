@@ -399,6 +399,8 @@
 				DEVELOPMENT_TEAM = "";
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "我们需要您的麦克风使用权限，以便接收您的语音指令.";
+				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "我们需要您的语音识别权限，以便将您的语音指令转换为任务。";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -428,6 +430,8 @@
 				DEVELOPMENT_TEAM = "";
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "我们需要您的麦克风使用权限，以便接收您的语音指令.";
+				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "我们需要您的语音识别权限，以便将您的语音指令转换为任务。";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
