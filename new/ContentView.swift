@@ -185,8 +185,17 @@ struct HomeView: View {
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Menu {
-                        Button("添加新习惯") { showingAddHabitSheet = true }
-                        Button("添加新待办") { showingAddTodoSheet = true }
+                        Button {
+                            showingAddHabitSheet = true
+                        } label: {
+                            Label("添加新习惯", systemImage: "flame.fill")
+                        }
+                        
+                        Button {
+                            showingAddTodoSheet = true
+                        } label: {
+                            Label("添加新待办", systemImage: "checklist")
+                        }
                     } label: {
                         Image(systemName: "plus.circle.fill")
                             .font(.title2)
@@ -296,11 +305,11 @@ struct AddHabitView: View {
     @Environment(\.dismiss) private var dismiss
     
     @State private var name: String = ""
-    @State private var selectedIcon: String = "star.fill"
+    @State private var selectedIcon: String = "⭐️"
     @State private var isReminderOn: Bool = false
-    @State private var reminderTime: Date = .now
+    @State private var reminderTime: Date = Date()
     
-    let icons = ["star.fill", "heart.fill", "flame.fill", "flag.fill", "bell.fill", "book.fill", "figure.walk", "trophy.fill"]
+    let icons = ["⭐️", "❤️", "🔥", "🚩", "🔔", "📖", "🏃", "🏆"]
 
     var body: some View {
         NavigationView {
@@ -310,14 +319,20 @@ struct AddHabitView: View {
                     
                     Picker("选择图标", selection: $selectedIcon) {
                         ForEach(icons, id: \.self) { icon in
-                            Image(systemName: icon).tag(icon)
+                            Text(icon)
                         }
                     }
                     .pickerStyle(.segmented)
                 }
                 
+                Section {
+                    Text("习惯是需要长期坚持的目标，持续打卡来见证你的成长。")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+
                 Section(header: Text("提醒设置")) {
-                    Toggle("开启提醒", isOn: $isReminderOn)
+                    Toggle("开启提醒", isOn: $isReminderOn.animation())
                     
                     if isReminderOn {
                         DatePicker("提醒时间", selection: $reminderTime, displayedComponents: .hourAndMinute)
@@ -325,6 +340,7 @@ struct AddHabitView: View {
                 }
             }
             .navigationTitle("添加新习惯")
+            .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("取消") { dismiss() }
@@ -333,9 +349,12 @@ struct AddHabitView: View {
                     Button("完成") {
                         let newHabit = Habit(name: name, icon: selectedIcon, isReminderOn: isReminderOn, reminderTime: reminderTime)
                         modelContext.insert(newHabit)
-                        NotificationManager.shared.scheduleNotification(for: newHabit)
+                        if newHabit.isReminderOn {
+                            NotificationManager.shared.scheduleNotification(for: newHabit)
+                        }
                         dismiss()
                     }
+                    .fontWeight(.bold)
                     .disabled(name.isEmpty)
                 }
             }
@@ -355,8 +374,15 @@ struct AddTodoView: View {
                 Section(header: Text("待办事项")) {
                     TextField("要做什么？", text: $title)
                 }
+                
+                Section {
+                    Text("待办是一次性的任务，完成后即可勾选。")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
             }
             .navigationTitle("添加新待办")
+            .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("取消") { dismiss() }
@@ -367,6 +393,7 @@ struct AddTodoView: View {
                         modelContext.insert(newTodo)
                         dismiss()
                     }
+                    .fontWeight(.bold)
                     .disabled(title.isEmpty)
                 }
             }
