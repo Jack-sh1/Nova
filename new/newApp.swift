@@ -10,10 +10,21 @@ import SwiftData
 
 @main
 struct newApp: App {
+    // 1. 监听应用场景的变化
+    @Environment(\.scenePhase) private var scenePhase
+    // 2. 获取 modelContext，以便传递给重置管理器
+    @Environment(\.modelContext) private var modelContext
+
     var body: some Scene {
         WindowGroup {
             ContentView()
         }
         .modelContainer(for: [Habit.self, TodoItem.self])
+        .onChange(of: scenePhase) { oldPhase, newPhase in
+            // 3. 当应用变为活跃状态时，执行重置检查
+            if newPhase == .active {
+                DailyResetManager.resetHabitsIfNeeded(context: modelContext)
+            }
+        }
     }
 }

@@ -204,9 +204,9 @@ struct HomeView: View {
 
 struct HabitRowView: View {
     @Bindable var habit: Habit
-    
+
     var body: some View {
-        HStack(spacing: 15) {
+        HStack {
             Image(systemName: habit.icon)
                 .font(.title)
                 .foregroundColor(habit.isCompleted ? .green : .orange)
@@ -227,8 +227,10 @@ struct HabitRowView: View {
                     habit.isCompleted.toggle()
                     if habit.isCompleted {
                         habit.streak += 1
+                        FeedbackManager.taskCompleted()
                     } else {
-                        habit.streak -= 1
+                        habit.streak = max(0, habit.streak - 1) // 确保天数不为负
+                        FeedbackManager.taskUncompleted()
                     }
                 }
             }) {
@@ -243,7 +245,7 @@ struct HabitRowView: View {
 
 struct TodoRowView: View {
     @Bindable var todo: TodoItem
-    
+
     var body: some View {
         HStack {
             Text(todo.title)
@@ -255,6 +257,11 @@ struct TodoRowView: View {
             Button(action: {
                 withAnimation {
                     todo.isCompleted.toggle()
+                    if todo.isCompleted {
+                        FeedbackManager.taskCompleted()
+                    } else {
+                        FeedbackManager.taskUncompleted()
+                    }
                 }
             }) {
                 Image(systemName: todo.isCompleted ? "checkmark.square.fill" : "square")
