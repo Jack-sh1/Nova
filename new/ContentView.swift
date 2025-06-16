@@ -11,7 +11,7 @@ import SwiftData
 // MARK: - Models
 @Model
 class Habit {
-    @Attribute(.unique) let id: UUID
+    @Attribute(.unique) var id: UUID
     var name: String
     var icon: String
     var isCompleted: Bool
@@ -30,7 +30,7 @@ class Habit {
 
 @Model
 class TodoItem {
-    @Attribute(.unique) let id: UUID
+    @Attribute(.unique) var id: UUID
     var title: String
     var isCompleted: Bool
     var creationDate: Date
@@ -51,6 +51,9 @@ struct ContentView: View {
     
     @Query(sort: \Habit.creationDate) private var habits: [Habit]
     @Query(sort: \TodoItem.creationDate) private var todoItems: [TodoItem]
+    
+    @State private var showingAddHabitSheet = false
+    @State private var showingAddTodoSheet = false
 
     var completedHabitsCount: Int {
         habits.filter { $0.isCompleted }.count
@@ -73,6 +76,7 @@ struct ContentView: View {
                     ForEach(habits) { habit in
                         HabitRowView(habit: habit)
                     }
+                    .onDelete(perform: deleteHabits)
                 }
                 
                 // To-Do List Section
@@ -80,10 +84,24 @@ struct ContentView: View {
                     ForEach(todoItems) { todo in
                         TodoRowView(todo: todo)
                     }
+                    .onDelete(perform: deleteTodos)
                 }
             }
             .listStyle(GroupedListStyle())
             .navigationTitle("主页")
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Menu {
+                        Button("添加新习惯") { showingAddHabitSheet = true }
+                        Button("添加新待办") { showingAddTodoSheet = true }
+                    } label: {
+                        Image(systemName: "plus.circle.fill")
+                            .font(.title2)
+                    }
+                }
+            }
+            .sheet(isPresented: $showingAddHabitSheet) { AddHabitView() }
+            .sheet(isPresented: $showingAddTodoSheet) { AddTodoView() }
             .onAppear(perform: addSampleDataIfNeeded)
         }
     }
@@ -101,6 +119,20 @@ struct ContentView: View {
         .padding(.vertical)
     }
     
+    private func deleteHabits(at offsets: IndexSet) {
+        for offset in offsets {
+            let habit = habits[offset]
+            modelContext.delete(habit)
+        }
+    }
+    
+    private func deleteTodos(at offsets: IndexSet) {
+        for offset in offsets {
+            let todo = todoItems[offset]
+            modelContext.delete(todo)
+        }
+    }
+
     private func addSampleDataIfNeeded() {
         if habits.isEmpty && todoItems.isEmpty {
             let sampleHabits = [
@@ -193,6 +225,78 @@ struct TodoRowView: View {
 }
 
 // MARK: - Preview
+
+// MARK: - Add Item Views
+
+struct AddHabitView: View {
+    @Environment(\.modelContext) private var modelContext
+    @Environment(\.dismiss) private var dismiss
+    
+    @State private var name = ""
+    @State private var icon = "star.fill"
+    let icons = ["star.fill", "heart.fill", "flame.fill", "flag.fill", "bell.fill", "book.fill", "figure.walk.circle.fill"]
+    
+    var body: some View {
+        NavigationView {
+            Form {
+                TextField("习惯名称", text: $name)
+                
+                Picker("选择图标", selection: $icon) {
+                    ForEach(icons, id: \.self) { iconName in
+                        Image(systemName: iconName)
+                            .font(.title2)
+                            .tag(iconName)
+                    }
+                }
+                .pickerStyle(.palette)
+            }
+            .navigationTitle("添加新习惯")
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("取消") { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("保存") {
+                        let newHabit = Habit(name: name, icon: icon)
+                        modelContext.insert(newHabit)
+                        dismiss()
+                    }
+                    .disabled(name.isEmpty)
+                }
+            }
+        }
+    }
+}
+
+struct AddTodoView: View {
+    @Environment(\.modelContext) private var modelContext
+    @Environment(\.dismiss) private var dismiss
+    
+    @State private var title = ""
+    
+    var body: some View {
+        NavigationView {
+            Form {
+                TextField("待办事项标题", text: $title)
+            }
+            .navigationTitle("添加新待办")
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("取消") { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("保存") {
+                        let newTodo = TodoItem(title: title)
+                        modelContext.insert(newTodo)
+                        dismiss()
+                    }
+                    .disabled(title.isEmpty)
+                }
+            }
+        }
+    }
+}
+
 
 struct ContentView_Previews: PreviewProvider {
     static var previews: some View {
