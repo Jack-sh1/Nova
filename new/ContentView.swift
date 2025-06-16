@@ -47,6 +47,22 @@ class TodoItem {
 // MARK: - Main Content View
 
 struct ContentView: View {
+    var body: some View {
+        TabView {
+            HomeView()
+                .tabItem {
+                    Label("主页", systemImage: "house.fill")
+                }
+            
+            StatisticsView()
+                .tabItem {
+                    Label("统计", systemImage: "chart.bar.xaxis")
+                }
+        }
+    }
+}
+
+struct HomeView: View {
     @Environment(\.modelContext) private var modelContext
     
     @Query(sort: \Habit.creationDate) private var habits: [Habit]
@@ -158,6 +174,7 @@ struct ContentView: View {
     }
     
     private func addSampleDataIfNeeded() {
+        // This logic remains the same
         if habits.isEmpty && todoItems.isEmpty {
             let sampleHabits = [
                 Habit(name: "喝 8 杯水", icon: "cup.and.saucer.fill", isCompleted: true, streak: 3),
