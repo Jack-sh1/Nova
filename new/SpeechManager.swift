@@ -36,10 +36,21 @@ class SpeechManager: ObservableObject {
         }
         
         // 请求麦克风使用权限。
-        AVAudioSession.sharedInstance().requestRecordPermission { granted in
-            DispatchQueue.main.async {
-                if !granted {
-                    self.error = "麦克风使用权限未被授予。"
+        if #available(iOS 17.0, macOS 14.0, *) {
+            AVAudioApplication.requestRecordPermission { granted in
+                DispatchQueue.main.async {
+                    if !granted {
+                        self.error = "麦克风使用权限未被授予。"
+                    }
+                }
+            }
+        } else {
+            // 为旧版系统提供回退方案
+            AVAudioSession.sharedInstance().requestRecordPermission { granted in
+                DispatchQueue.main.async {
+                    if !granted {
+                        self.error = "麦克风使用权限未被授予。"
+                    }
                 }
             }
         }
@@ -54,6 +65,16 @@ class SpeechManager: ObservableObject {
         transcribedText = ""
         error = nil
         
+        // 显式配置并激活音频会话，确保硬件准备就绪
+        let session = AVAudioSession.sharedInstance()
+        do {
+            try session.setCategory(.record, mode: .measurement, options: .duckOthers)
+            try session.setActive(true, options: .notifyOthersOnDeactivation)
+        } catch {
+            self.error = "无法设置音频会话: \(error.localizedDescription)"
+            return
+        }
+        
         audioEngine = AVAudioEngine()
         request = SFSpeechAudioBufferRecognitionRequest()
         
@@ -66,14 +87,27 @@ class SpeechManager: ObservableObject {
         
         let inputNode = audioEngine.inputNode
         
-        task = recognizer.recognitionTask(with: request) { result, error in
+        task = recognizer.recognitionTask(with: request) { [weak self] result, error in
+            guard let self = self else { return }
+
             if let result = result {
                 DispatchQueue.main.async {
                     self.transcribedText = result.bestTranscription.formattedString
                 }
-            } else if let error = error {
-                print("识别错误: \(error)")
-                self.stopListening()
+            }
+            
+            if let error = error {
+                // 将 error 转换为 NSError 以检查 domain 和 code
+                let nsError = error as NSError
+                
+                // 如果错误是用户主动取消（code 301），则不视为真正的错误，静默处理即可。
+                // 否则，打印错误并停止监听。
+                if !(nsError.domain == "kLSRErrorDomain" && nsError.code == 301) {
+                    DispatchQueue.main.async {
+                        self.error = "识别错误: \(error.localizedDescription)"
+                    }
+                    self.stopListening()
+                }
             }
         }
         
