@@ -54,6 +54,8 @@ struct ContentView: View {
     
     @State private var showingAddHabitSheet = false
     @State private var showingAddTodoSheet = false
+    @State private var habitToEdit: Habit?
+    @State private var todoToEdit: TodoItem?
 
     var completedHabitsCount: Int {
         habits.filter { $0.isCompleted }.count
@@ -75,16 +77,42 @@ struct ContentView: View {
                 Section(header: Text("今日习惯").font(.title2).fontWeight(.bold).foregroundColor(.primary)) {
                     ForEach(habits) { habit in
                         HabitRowView(habit: habit)
+                            .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                                Button(role: .destructive) {
+                                    delete(habit: habit)
+                                } label: {
+                                    Label("删除", systemImage: "trash")
+                                }
+
+                                Button {
+                                    habitToEdit = habit
+                                } label: {
+                                    Label("编辑", systemImage: "pencil")
+                                }
+                                .tint(.blue)
+                            }
                     }
-                    .onDelete(perform: deleteHabits)
                 }
                 
                 // To-Do List Section
                 Section(header: Text("待办事项").font(.title2).fontWeight(.bold).foregroundColor(.primary)) {
                     ForEach(todoItems) { todo in
                         TodoRowView(todo: todo)
+                            .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                                Button(role: .destructive) {
+                                    delete(todo: todo)
+                                } label: {
+                                    Label("删除", systemImage: "trash")
+                                }
+
+                                Button {
+                                    todoToEdit = todo
+                                } label: {
+                                    Label("编辑", systemImage: "pencil")
+                                }
+                                .tint(.blue)
+                            }
                     }
-                    .onDelete(perform: deleteTodos)
                 }
             }
             .listStyle(GroupedListStyle())
@@ -102,6 +130,8 @@ struct ContentView: View {
             }
             .sheet(isPresented: $showingAddHabitSheet) { AddHabitView() }
             .sheet(isPresented: $showingAddTodoSheet) { AddTodoView() }
+            .sheet(item: $habitToEdit, content: EditHabitView.init)
+            .sheet(item: $todoToEdit, content: EditTodoView.init)
             .onAppear(perform: addSampleDataIfNeeded)
         }
     }
@@ -118,21 +148,15 @@ struct ContentView: View {
         }
         .padding(.vertical)
     }
-    
-    private func deleteHabits(at offsets: IndexSet) {
-        for offset in offsets {
-            let habit = habits[offset]
-            modelContext.delete(habit)
-        }
-    }
-    
-    private func deleteTodos(at offsets: IndexSet) {
-        for offset in offsets {
-            let todo = todoItems[offset]
-            modelContext.delete(todo)
-        }
+
+    private func delete(habit: Habit) {
+        modelContext.delete(habit)
     }
 
+    private func delete(todo: TodoItem) {
+        modelContext.delete(todo)
+    }
+    
     private func addSampleDataIfNeeded() {
         if habits.isEmpty && todoItems.isEmpty {
             let sampleHabits = [
@@ -302,5 +326,55 @@ struct ContentView_Previews: PreviewProvider {
     static var previews: some View {
         ContentView()
             .modelContainer(for: [Habit.self, TodoItem.self], inMemory: true)
+    }
+}
+
+// MARK: - Edit Item Views
+
+struct EditHabitView: View {
+    @Environment(\.dismiss) private var dismiss
+    @Bindable var habit: Habit
+
+    let icons = ["star.fill", "heart.fill", "flame.fill", "flag.fill", "bell.fill", "book.fill", "figure.walk.circle.fill"]
+
+    var body: some View {
+        NavigationView {
+            Form {
+                TextField("习惯名称", text: $habit.name)
+                Picker("选择图标", selection: $habit.icon) {
+                    ForEach(icons, id: \.self) { iconName in
+                        Image(systemName: iconName)
+                            .font(.title2)
+                            .tag(iconName)
+                    }
+                }
+                .pickerStyle(.palette)
+            }
+            .navigationTitle("编辑习惯")
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("完成") { dismiss() }
+                }
+            }
+        }
+    }
+}
+
+struct EditTodoView: View {
+    @Environment(\.dismiss) private var dismiss
+    @Bindable var todo: TodoItem
+
+    var body: some View {
+        NavigationView {
+            Form {
+                TextField("待办事项标题", text: $todo.title)
+            }
+            .navigationTitle("编辑待办")
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("完成") { dismiss() }
+                }
+            }
+        }
     }
 }
