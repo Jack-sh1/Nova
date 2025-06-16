@@ -335,6 +335,35 @@ struct AddHabitView: View {
     }
 }
 
+struct AddTodoView: View {
+    @Environment(\.modelContext) private var modelContext
+    @Environment(\.dismiss) private var dismiss
+
+    @State private var title = ""
+
+    var body: some View {
+        NavigationView {
+            Form {
+                TextField("待办事项", text: $title)
+            }
+            .navigationTitle("添加新待办")
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("取消") { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("完成") {
+                        let newTodo = TodoItem(title: title) // isCompleted 会默认为 false
+                        modelContext.insert(newTodo)
+                        dismiss()
+                    }
+                    .disabled(title.isEmpty)
+                }
+            }
+        }
+    }
+}
+
 struct EditHabitView: View {
     @Environment(\.dismiss) private var dismiss
     @Bindable var habit: Habit
