@@ -44,13 +44,7 @@ struct VoiceInputView: View {
                         .shadow(radius: 5)
                 }
                 
-                if !speechManager.transcribedText.isEmpty && !speechManager.isListening {
-                    Button("用这段文字创建任务") {
-                        processText()
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .controlSize(.large)
-                }
+
                 
                 if let error = speechManager.error ?? aiError {
                     Text("错误: \(error)")
@@ -61,10 +55,19 @@ struct VoiceInputView: View {
             }
             .padding()
             .navigationTitle("语音创建任务")
+            .onChange(of: speechManager.isListening) { _, isListening in
+                // When listening stops and there is text, process it automatically.
+                if !isListening && !speechManager.transcribedText.isEmpty {
+                    processText()
+                }
+            }
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("关闭") { dismiss() }
                 }
+            }
+            .onDisappear {
+                speechManager.stopListening()
             }
         }
     }

@@ -42,12 +42,11 @@ class AchievementManager: ObservableObject {
         
         // 遍历所有习惯，检查连胜成就
         for habit in habits {
-            // 使用我们为Habit模型添加的新方法来计算连胜天数
-            let streak = habit.calculateCurrentStreak()
-            if streak >= 7 {
+            // 使用我们重构后的计算属性来获取最新的连胜天数
+            if habit.currentStreak >= 7 {
                 unlock(achievementId: "streak_7")
             }
-            if streak >= 30 {
+            if habit.currentStreak >= 30 {
                 unlock(achievementId: "streak_30")
             }
         }

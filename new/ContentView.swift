@@ -50,7 +50,8 @@ class Habit {
     var creationDate: Date
     var isReminderOn: Bool
     var reminderTime: Date
-    var completionDates: [Date] = []
+    // Stored property is now Data to be compatible with SwiftData
+    private var completionDatesData: Data = Data()
 
     init(name: String, icon: String, isReminderOn: Bool = false, reminderTime: Date = Date()) {
         self.id = UUID()
@@ -59,6 +60,20 @@ class Habit {
         self.creationDate = .now
         self.isReminderOn = isReminderOn
         self.reminderTime = reminderTime
+        // Initialize with an empty array, which gets encoded to data
+        self.completionDates = []
+    }
+    
+    // Computed property for easy access and to maintain compatibility with existing code
+    var completionDates: [Date] {
+        get {
+            // Decode data into [Date], providing an empty array as a fallback.
+            (try? JSONDecoder().decode([Date].self, from: completionDatesData)) ?? []
+        }
+        set {
+            // Encode [Date] into data
+            completionDatesData = (try? JSONEncoder().encode(newValue)) ?? Data()
+        }
     }
     
     var isCompletedToday: Bool {
@@ -399,8 +414,9 @@ struct HabitRowView: View {
     
     var body: some View {
         HStack {
-            Image(systemName: habit.icon)
-                .foregroundColor(.accentColor)
+            IconView(iconName: habit.icon)
+                .font(.title)
+                .frame(width: 40)
             Text(habit.name)
             Spacer()
             Text("连胜: \(habit.currentStreak)")
@@ -436,18 +452,24 @@ struct TodoItemRowView: View {
     var body: some View {
         HStack {
             Text(todoItem.title)
+                .strikethrough(todoItem.isCompleted)
+                .foregroundColor(todoItem.isCompleted ? .secondary : .primary)
+
             Spacer()
+
             Button(action: {
-                todoItem.isCompleted.toggle()
-                if todoItem.isCompleted {
-                    FeedbackManager.taskCompleted()
-                } else {
-                    FeedbackManager.taskUncompleted()
+                // This action is now one-way.
+                withAnimation {
+                    todoItem.isCompleted = true
                 }
+                FeedbackManager.taskCompleted()
             }) {
                 Image(systemName: todoItem.isCompleted ? "checkmark.circle.fill" : "circle")
+                    .foregroundColor(todoItem.isCompleted ? .green : .accentColor)
             }
             .buttonStyle(PlainButtonStyle())
+            // Disable the button once the task is completed.
+            .disabled(todoItem.isCompleted)
         }
     }
 }

@@ -132,8 +132,8 @@ struct StreakView: View {
                         .font(.title)
                         .foregroundColor(index == 0 ? .yellow : (index == 1 ? .gray : .brown))
                     
-                    Image(systemName: habit.icon)
-                        .font(.title2)
+                    IconView(iconName: habit.icon)
+                        .font(.largeTitle)
                         .frame(width: 30)
 
                     Text(habit.name)

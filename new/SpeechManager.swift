@@ -105,15 +105,18 @@ class SpeechManager: ObservableObject {
                 if !(nsError.domain == "kLSRErrorDomain" && nsError.code == 301) {
                     DispatchQueue.main.async {
                         self.error = "识别错误: \(error.localizedDescription)"
+                        // We should not call stopListening() from here as it can cause race conditions
+                        // with deinit or other UI-driven calls. Instead, we just update the state.
+                        // The view's lifecycle (e.g., onDisappear) is responsible for cleanup.
+                        self.isListening = false
                     }
-                    self.stopListening()
                 }
             }
         }
         
         let recordingFormat = inputNode.outputFormat(forBus: 0)
-        inputNode.installTap(onBus: 0, bufferSize: 1024, format: recordingFormat) { buffer, _ in
-            request.append(buffer)
+        inputNode.installTap(onBus: 0, bufferSize: 1024, format: recordingFormat) { [weak self] buffer, _ in
+            self?.request?.append(buffer)
         }
         
         do {
@@ -129,18 +132,36 @@ class SpeechManager: ObservableObject {
     }
 
     func stopListening() {
+        // The order of operations is critical for a clean shutdown.
+        
+        // 1. Stop the audio engine and remove the tap to prevent further audio processing.
+        if audioEngine?.isRunning == true {
+            audioEngine?.inputNode.removeTap(onBus: 0)
+            audioEngine?.stop()
+        }
+        
+        // 2. Finalize the recognition request.
+        request?.endAudio()
+        
+        // 3. Cancel the recognition task.
         task?.cancel()
+        
+        // 4. Nil out all optional properties to break potential retain cycles and release memory.
+        audioEngine = nil
+        request = nil
         task = nil
         
-        request?.endAudio()
-        request = nil
+        // 5. Deactivate the audio session to release the hardware.
+        // This should be done after all other components are stopped.
+        do {
+            try AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+        } catch {
+            print("Failed to deactivate audio session: \(error.localizedDescription)")
+        }
         
-        audioEngine?.stop()
-        audioEngine?.inputNode.removeTap(onBus: 0)
-        audioEngine = nil
-        
-        DispatchQueue.main.async {
-            self.isListening = false
+        // 6. Update the UI on the main thread.
+        DispatchQueue.main.async { [weak self] in
+            self?.isListening = false
         }
     }
 }
