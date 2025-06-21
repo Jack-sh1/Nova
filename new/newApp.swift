@@ -18,6 +18,15 @@ struct newApp: App {
     var body: some Scene {
         WindowGroup {
             ContentView()
+                .onAppear {
+                    HealthKitManager.shared.requestAuthorization { success, error in
+                        if success {
+                            print("健康数据授权成功")
+                        } else if let error = error {
+                            print("健康数据授权失败: \(error.localizedDescription)")
+                        }
+                    }
+                }
         }
         .modelContainer(for: [Habit.self, TodoItem.self])
         .onChange(of: scenePhase) { oldPhase, newPhase in
