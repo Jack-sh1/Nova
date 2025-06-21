@@ -14,19 +14,14 @@ struct newApp: App {
     @Environment(\.scenePhase) private var scenePhase
     // 2. 获取 modelContext，以便传递给重置管理器
     @Environment(\.modelContext) private var modelContext
+    
+    // 3. 创建成就系统的“大脑”实例
+    @StateObject private var achievementManager = AchievementManager()
 
     var body: some Scene {
         WindowGroup {
             ContentView()
-                .onAppear {
-                    HealthKitManager.shared.requestAuthorization { success, error in
-                        if success {
-                            print("健康数据授权成功")
-                        } else if let error = error {
-                            print("健康数据授权失败: \(error.localizedDescription)")
-                        }
-                    }
-                }
+                .environmentObject(achievementManager) // 4. 将“大脑”注入到视图环境中
         }
         .modelContainer(for: [Habit.self, TodoItem.self])
         .onChange(of: scenePhase) { oldPhase, newPhase in
@@ -34,8 +29,7 @@ struct newApp: App {
             if newPhase == .active {
                 // 请求通知权限
                 NotificationManager.shared.requestAuthorization()
-                // 执行每日重置检查
-                DailyResetManager.resetHabitsIfNeeded(context: modelContext)
+
             }
         }
     }

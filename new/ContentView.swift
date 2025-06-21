@@ -8,27 +8,68 @@
 import SwiftUI
 import SwiftData
 
+// MARK: - Habit Extension for Achievements
+extension Habit {
+    /**
+     Calculates the current continuous completion streak ending today or yesterday.
+     */
+    func calculateCurrentStreak() -> Int {
+        guard !completionDates.isEmpty else { return 0 }
+
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: Date())
+        
+        // Create a set of start-of-day dates for efficient lookup
+        let completedDays = Set(completionDates.map { calendar.startOfDay(for: $0) })
+
+        var streak = 0
+        var currentDate = today
+
+        // If today isn't completed, the streak might have ended yesterday.
+        // So, we start checking from yesterday.
+        if !completedDays.contains(today) {
+            currentDate = calendar.date(byAdding: .day, value: -1, to: today)!
+        }
+        
+        // Iterate backwards from the starting date
+        while completedDays.contains(currentDate) {
+            streak += 1
+            currentDate = calendar.date(byAdding: .day, value: -1, to: currentDate)!
+        }
+        
+        return streak
+    }
+}
+
 // MARK: - Models
 @Model
 class Habit {
     @Attribute(.unique) var id: UUID
     var name: String
     var icon: String
-    var isCompleted: Bool
-    var streak: Int
     var creationDate: Date
     var isReminderOn: Bool
     var reminderTime: Date
+    var completionDates: [Date] = []
 
-    init(name: String, icon: String, isCompleted: Bool = false, streak: Int = 0, isReminderOn: Bool = false, reminderTime: Date = Date()) {
+    init(name: String, icon: String, isReminderOn: Bool = false, reminderTime: Date = Date()) {
         self.id = UUID()
         self.name = name
         self.icon = icon
-        self.isCompleted = isCompleted
-        self.streak = streak
         self.creationDate = .now
         self.isReminderOn = isReminderOn
         self.reminderTime = reminderTime
+    }
+    
+    var isCompletedToday: Bool {
+        let today = Calendar.current.startOfDay(for: Date())
+        return completionDates.contains { date in
+            Calendar.current.isDate(date, inSameDayAs: today)
+        }
+    }
+    
+    var currentStreak: Int {
+        calculateCurrentStreak()
     }
 }
 
@@ -51,7 +92,8 @@ class TodoItem {
 // MARK: - Main View with TabBar
 struct ContentView: View {
     @State private var showingVoiceInputSheet = false
-
+    @State private var unlockedAchievement: Achievement?
+    
     var body: some View {
         ZStack(alignment: .bottom) {
             TabView {
@@ -83,8 +125,97 @@ struct ContentView: View {
             .sheet(isPresented: $showingVoiceInputSheet) {
                 VoiceInputView()
             }
+            if let achievement = unlockedAchievement {
+                Color.black.opacity(0.4).ignoresSafeArea().onTapGesture {
+                    withAnimation { unlockedAchievement = nil }
+                }
+                AchievementUnlockedView(achievement: achievement)
+                    .onTapGesture {
+                        withAnimation { unlockedAchievement = nil }
+                    }
+            }
         }
         .ignoresSafeArea(.keyboard) // Prevent keyboard from pushing the button up
+        .onReceive(NotificationCenter.default.publisher(for: .didUnlockAchievement)) { notification in
+            // Ensure we don't show a new alert if one is already showing
+            guard unlockedAchievement == nil else { return }
+            
+            if let achievement = notification.object as? Achievement {
+                // Present the achievement
+                withAnimation(.spring(response: 0.6, dampingFraction: 0.7)) {
+                    self.unlockedAchievement = achievement
+                }
+                
+                // Haptic feedback for celebration
+                // Assuming FeedbackManager has this method. If not, we can add it.
+                UINotificationFeedbackGenerator().notificationOccurred(.success)
+                
+                // Automatically hide after a few seconds
+                DispatchQueue.main.asyncAfter(deadline: .now() + 5) {
+                    withAnimation(.spring(response: 0.6, dampingFraction: 0.7)) {
+                        // Only hide if it's still the same achievement being shown
+                        if self.unlockedAchievement?.id == achievement.id {
+                            self.unlockedAchievement = nil
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Achievement Unlocked View
+struct AchievementUnlockedView: View {
+    let achievement: Achievement
+    @State private var scale: CGFloat = 0.5
+    @State private var rotation: Double = -15
+
+    var body: some View {
+        VStack(spacing: 16) {
+            Text("🎉 成就解锁 🎉")
+                .font(.largeTitle)
+                .fontWeight(.bold)
+                .foregroundColor(.primary)
+
+            Image(systemName: achievement.iconName)
+                .font(.system(size: 70))
+                .foregroundColor(.white)
+                .padding(24)
+                .background(
+                    Circle().fill(Color.yellow.gradient)
+                )
+                .shadow(color: .yellow.opacity(0.7), radius: 10)
+
+
+            Text(achievement.name)
+                .font(.title2)
+                .fontWeight(.semibold)
+                .foregroundColor(.primary)
+
+            Text(achievement.description)
+                .font(.body)
+                .foregroundColor(.secondary)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal)
+        }
+        .padding(.vertical, 32)
+        .padding(.horizontal)
+        .background(.ultraThinMaterial)
+        .clipShape(RoundedRectangle(cornerRadius: 25.0, style: .continuous))
+        .shadow(color: .black.opacity(0.2), radius: 20, y: 10)
+        .scaleEffect(scale)
+        .rotation3DEffect(
+            .degrees(rotation),
+            axis: (x: 1.0, y: 0.0, z: 0.0)
+        )
+        .onAppear {
+            withAnimation(.spring(response: 0.6, dampingFraction: 0.6)) {
+                scale = 1.0
+                rotation = 0
+            }
+        }
+        .transition(.opacity.combined(with: .scale(scale: 0.5)))
+        .zIndex(10) // Make sure it's on top of everything
     }
 }
 
@@ -116,6 +247,7 @@ struct EmptyStateView: View {
 }
 struct HomeView: View {
     @Environment(\.modelContext) private var modelContext
+    @EnvironmentObject var achievementManager: AchievementManager
     
     @Query(sort: \Habit.creationDate) private var habits: [Habit]
     @Query(sort: \TodoItem.creationDate) private var todoItems: [TodoItem]
@@ -126,7 +258,7 @@ struct HomeView: View {
     @State private var todoToEdit: TodoItem?
 
     var completedHabitsCount: Int {
-        habits.filter { $0.isCompleted }.count
+        habits.filter { $0.isCompletedToday }.count
     }
     
     var totalHabitsCount: Int {
@@ -213,7 +345,16 @@ struct HomeView: View {
             .sheet(isPresented: $showingAddTodoSheet) { AddTodoView() }
             .sheet(item: $habitToEdit, content: EditHabitView.init)
             .sheet(item: $todoToEdit, content: EditTodoView.init)
-            .onAppear(perform: addSampleDataIfNeeded)
+            .onAppear {
+                addSampleDataIfNeeded()
+                achievementManager.checkAchievements(for: habits)
+            }
+            .onChange(of: habits.count) { // Check when habits are added or deleted
+                achievementManager.checkAchievements(for: habits)
+            }
+            .onChange(of: habits.map { $0.completionDates.count }) { // Check when a habit is completed/uncompleted
+                achievementManager.checkAchievements(for: habits)
+            }
         }
     }
     
@@ -262,23 +403,29 @@ struct HabitRowView: View {
                 .foregroundColor(.accentColor)
             Text(habit.name)
             Spacer()
-            Text("连胜: \(habit.streak)")
+            Text("连胜: \(habit.currentStreak)")
                 .font(.caption)
                 .foregroundColor(.secondary)
             
             Button(action: {
-                habit.isCompleted.toggle()
-                if habit.isCompleted {
-                    habit.streak += 1
-                    FeedbackManager.taskCompleted()
-                } else {
-                    habit.streak = max(0, habit.streak - 1)
-                    FeedbackManager.taskUncompleted()
-                }
+                toggleCompletion()
             }) {
-                Image(systemName: habit.isCompleted ? "checkmark.circle.fill" : "circle")
+                Image(systemName: habit.isCompletedToday ? "checkmark.circle.fill" : "circle")
             }
             .buttonStyle(PlainButtonStyle())
+        }
+    }
+    
+    private func toggleCompletion() {
+        let today = Calendar.current.startOfDay(for: Date())
+        if let index = habit.completionDates.firstIndex(where: { Calendar.current.isDate($0, inSameDayAs: today) }) {
+            // It was completed today, so un-complete it
+            habit.completionDates.remove(at: index)
+            FeedbackManager.taskUncompleted()
+        } else {
+            // It was not completed today, so complete it
+            habit.completionDates.append(Date())
+            FeedbackManager.taskCompleted()
         }
     }
 }

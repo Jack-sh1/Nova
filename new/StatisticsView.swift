@@ -15,6 +15,7 @@ struct StatisticsView: View {
                         CompletionRateView(habits: habits)
                         WeeklyChartView(habits: habits)
                         StreakView(habits: habits)
+                        AchievementsView()
                     }
                 }
                 .padding()
@@ -30,7 +31,7 @@ struct CompletionRateView: View {
     
     private var completionPercentage: Double {
         guard !habits.isEmpty else { return 0 }
-        let completedCount = habits.filter { $0.isCompleted }.count
+        let completedCount = habits.filter { $0.isCompletedToday }.count
         return Double(completedCount) / Double(habits.count)
     }
 
@@ -92,12 +93,12 @@ struct WeeklyChartView: View {
 
             Chart(habits) { habit in
                 BarMark(
-                    x: .value("天数", habit.streak),
+                    x: .value("天数", habit.currentStreak),
                     y: .value("习惯", habit.name)
                 )
                 .foregroundStyle(by: .value("习惯", habit.name))
                 .annotation(position: .trailing) {
-                    Text("\(habit.streak)")
+                    Text("\(habit.currentStreak)")
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
@@ -116,7 +117,7 @@ struct StreakView: View {
     let habits: [Habit]
     
     private var sortedHabits: [Habit] {
-        habits.sorted { $0.streak > $1.streak }
+        habits.sorted { $0.currentStreak > $1.currentStreak }
     }
 
     var body: some View {
@@ -138,7 +139,7 @@ struct StreakView: View {
                     Text(habit.name)
                         .font(.headline)
                     Spacer()
-                    Text("\(habit.streak) 天")
+                    Text("\(habit.currentStreak) 天")
                         .fontWeight(.bold)
                 }
                 .padding()
@@ -153,8 +154,51 @@ struct StreakView: View {
 }
 
 
+struct AchievementsView: View {
+    @EnvironmentObject var achievementManager: AchievementManager
+    
+    let columns = [
+        GridItem(.adaptive(minimum: 100))
+    ]
+    
+    var body: some View {
+        VStack(alignment: .leading) {
+            Text("我的徽章")
+                .font(.title2)
+                .fontWeight(.semibold)
+                .padding(.bottom, 5)
+            
+            LazyVGrid(columns: columns, spacing: 20) {
+                ForEach(achievementManager.allAchievements) { achievement in
+                    VStack {
+                        Image(systemName: achievement.iconName)
+                            .font(.largeTitle)
+                            .padding()
+                            .background(achievementManager.unlockedAchievements.contains(achievement.id) ? Color.yellow.opacity(0.3) : Color.gray.opacity(0.2))
+                            .clipShape(Circle())
+                            .foregroundColor(achievementManager.unlockedAchievements.contains(achievement.id) ? .yellow : .gray)
+                        
+                        Text(achievement.name)
+                            .font(.headline)
+                            .foregroundColor(achievementManager.unlockedAchievements.contains(achievement.id) ? .primary : .secondary)
+                        
+                        Text(achievement.description)
+                            .font(.caption)
+                            .multilineTextAlignment(.center)
+                            .foregroundColor(.secondary)
+                    }
+                }
+            }
+        }
+        .padding()
+        .background(Color(.secondarySystemGroupedBackground))
+        .cornerRadius(12)
+    }
+}
+
 struct StatisticsView_Previews: PreviewProvider {
     static var previews: some View {
         StatisticsView()
+            .environmentObject(AchievementManager())
     }
 }
