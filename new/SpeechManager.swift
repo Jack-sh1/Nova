@@ -6,13 +6,15 @@ import AVFoundation
 class SpeechManager: ObservableObject {
     
     // Published 属性会实时更新 UI。
-    @Published var isListening = false
-    @Published var transcribedText = ""
-    @Published var error: String?
+    @Published private(set) var isListening = false
+    @Published private(set) var transcribedText = ""
+    @Published private(set) var error: String?
+    @Published var audioLevel: CGFloat = 0.0
     
     private var audioEngine: AVAudioEngine?
     private var request: SFSpeechAudioBufferRecognitionRequest?
     private var task: SFSpeechRecognitionTask?
+    private var silenceTimer: Timer?
     // 我们将使用中文作为识别语言。
     private let recognizer = SFSpeechRecognizer(locale: Locale(identifier: "zh-CN"))
 
@@ -22,7 +24,9 @@ class SpeechManager: ObservableObject {
     }
 
     deinit {
-        stopListening()
+        // Deinitialization must be synchronous and on the main thread for UI-related objects.
+        // We ensure our stop logic can be called safely from here.
+        _stopListening()
     }
     
     func requestPermissions() {
@@ -93,6 +97,8 @@ class SpeechManager: ObservableObject {
             if let result = result {
                 DispatchQueue.main.async {
                     self.transcribedText = result.bestTranscription.formattedString
+                    // Reset the timer every time new text is received.
+                    self.resetSilenceTimer()
                 }
             }
             
@@ -102,13 +108,12 @@ class SpeechManager: ObservableObject {
                 
                 // 如果错误是用户主动取消（code 301），则不视为真正的错误，静默处理即可。
                 // 否则，打印错误并停止监听。
+                // If a significant error occurs (not just user cancellation), stop everything.
                 if !(nsError.domain == "kLSRErrorDomain" && nsError.code == 301) {
                     DispatchQueue.main.async {
                         self.error = "识别错误: \(error.localizedDescription)"
-                        // We should not call stopListening() from here as it can cause race conditions
-                        // with deinit or other UI-driven calls. Instead, we just update the state.
-                        // The view's lifecycle (e.g., onDisappear) is responsible for cleanup.
-                        self.isListening = false
+                        // Call the main stop function to ensure a clean shutdown.
+                        self._stopListening()
                     }
                 }
             }
@@ -117,6 +122,30 @@ class SpeechManager: ObservableObject {
         let recordingFormat = inputNode.outputFormat(forBus: 0)
         inputNode.installTap(onBus: 0, bufferSize: 1024, format: recordingFormat) { [weak self] buffer, _ in
             self?.request?.append(buffer)
+            
+            // --- Audio Level Calculation ---
+            guard let self = self else { return }
+            
+            let channelData = buffer.floatChannelData![0]
+            let channelDataValue = UnsafeMutablePointer<Float>(channelData)
+            let channelDataValueArray = stride(from: 0,
+                                               to: Int(buffer.frameLength),
+                                               by: buffer.stride).map{ channelDataValue[$0] }
+            let rms = sqrt(channelDataValueArray.map{ $0 * $0 }.reduce(0, +) / Float(buffer.frameLength))
+            
+            // Avoid log10(0) which is -infinity.
+            guard rms > 0 else {
+                DispatchQueue.main.async { self.audioLevel = 0 }
+                return
+            }
+            
+            let avgPower = 20 * log10(rms)
+            // Normalize power to a 0-1 range, where -50 dB is 0 and 0 dB is 1.
+            let normalizedPower = CGFloat(max(0, (avgPower + 50) / 50))
+
+            DispatchQueue.main.async {
+                self.audioLevel = normalizedPower
+            }
         }
         
         do {
@@ -124,6 +153,8 @@ class SpeechManager: ObservableObject {
             try audioEngine.start()
             DispatchQueue.main.async {
                 self.isListening = true
+                // Start the silence detection timer.
+                self.resetSilenceTimer()
             }
         } catch {
             self.error = "无法启动音频引擎: \(error.localizedDescription)"
@@ -131,37 +162,56 @@ class SpeechManager: ObservableObject {
         }
     }
 
+    // Public function to be called from UI, timers, etc.
+    // It safely dispatches the core logic to the main thread to prevent race conditions.
     func stopListening() {
+        DispatchQueue.main.async {
+            self._stopListening()
+        }
+    }
+
+    // Private core function to stop listening. MUST be called on the main thread.
+    // It's idempotent, meaning it's safe to call multiple times.
+    private func _stopListening() {
+        // If we're not listening, there's nothing to do.
+        guard isListening else { return }
+
+        // Update state immediately to prevent re-entry.
+        isListening = false
+        audioLevel = 0.0
+
+        // Invalidate the timer to prevent it from firing unexpectedly.
+        silenceTimer?.invalidate()
+        silenceTimer = nil
+
         // The order of operations is critical for a clean shutdown.
-        
-        // 1. Stop the audio engine and remove the tap to prevent further audio processing.
         if audioEngine?.isRunning == true {
             audioEngine?.inputNode.removeTap(onBus: 0)
             audioEngine?.stop()
         }
-        
-        // 2. Finalize the recognition request.
         request?.endAudio()
-        
-        // 3. Cancel the recognition task.
         task?.cancel()
         
-        // 4. Nil out all optional properties to break potential retain cycles and release memory.
+        // Nil out all optional properties to break potential retain cycles and release memory.
         audioEngine = nil
         request = nil
         task = nil
         
-        // 5. Deactivate the audio session to release the hardware.
-        // This should be done after all other components are stopped.
+        // Deactivate the audio session to release the hardware.
         do {
             try AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
         } catch {
             print("Failed to deactivate audio session: \(error.localizedDescription)")
         }
-        
-        // 6. Update the UI on the main thread.
-        DispatchQueue.main.async { [weak self] in
-            self?.isListening = false
+    }
+
+    private func resetSilenceTimer() {
+        // Invalidate any existing timer.
+        silenceTimer?.invalidate()
+        // Start a new timer. If it fires after 1.5 seconds of silence, stop listening.
+        silenceTimer = Timer.scheduledTimer(withTimeInterval: 2.5, repeats: false) { [weak self] _ in
+            guard let self = self, self.isListening else { return }
+            self.stopListening()
         }
     }
 }

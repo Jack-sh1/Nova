@@ -7,72 +7,109 @@ struct VoiceInputView: View {
     
     @State private var isProcessing = false
     @State private var aiError: String?
+    @State private var displayAmplitude: CGFloat = 0.0
     
     private let deepSeekManager = DeepSeekManager()
     
-    var body: some View {
-        NavigationView {
-            VStack(spacing: 20) {
-                
-                if isProcessing {
-                    ProgressView("AI 正在分析您的指令...")
-                } else {
-                    Text(speechManager.isListening ? "请讲，我听着呢..." : "点击麦克风开始语音输入")
-                        .font(.title2)
-                        .fontWeight(.medium)
-                        .foregroundColor(.primary)
-                }
-                
-                Text(speechManager.transcribedText)
-                    .font(.body)
-                    .foregroundColor(.secondary)
-                    .frame(minHeight: 100, maxHeight: .infinity, alignment: .topLeading)
-                    .padding()
-                    .background(Color(.secondarySystemGroupedBackground))
-                    .cornerRadius(12)
-                
-                Button(action: {
-                    if speechManager.isListening {
-                        speechManager.stopListening()
-                    } else {
-                        speechManager.startListening()
-                    }
-                }) {
-                    Image(systemName: speechManager.isListening ? "stop.circle.fill" : "mic.circle.fill")
-                        .font(.system(size: 70))
-                        .foregroundColor(speechManager.isListening ? .red : .accentColor)
-                        .shadow(radius: 5)
-                }
-                
+    // MARK: - Body
 
+    var body: some View {
+        ZStack {
+            // Use a dark background for a more immersive, modern feel.
+            Color.black.ignoresSafeArea()
+
+            VStack(spacing: 20) {
+                Spacer()
                 
-                if let error = speechManager.error ?? aiError {
-                    Text("错误: \(error)")
+                // Main status text, which updates based on the current state.
+                Text(titleText)
+                    .font(speechManager.isListening && !speechManager.transcribedText.isEmpty ? .title2 : .largeTitle)
+                    .fontWeight(.bold)
+                    .foregroundColor(.white)
+                    .multilineTextAlignment(.center)
+                    .frame(minHeight: 100)
+                    .animation(.easeInOut, value: titleText)
+                
+                // Subtitle provides context or instructions.
+                Text(subtitleText)
+                    .font(.title3)
+                    .foregroundColor(.gray)
+                    .animation(.easeInOut, value: subtitleText)
+
+                if let error = aiError {
+                    Text(error)
                         .foregroundColor(.red)
-                        .font(.caption)
                         .padding()
+                        .transition(.opacity)
                 }
+
+                Spacer()
+                
+                // The dynamic Siri-like wave visualization.
+                SiriWaveView(amplitude: $displayAmplitude)
+                    .frame(height: 200)
+                    .onTapGesture {
+                        toggleListening()
+                    }
+                
+                Spacer().frame(height: 40)
             }
             .padding()
-            .navigationTitle("语音创建任务")
-            .onChange(of: speechManager.isListening) { _, isListening in
-                // When listening stops and there is text, process it automatically.
-                if !isListening && !speechManager.transcribedText.isEmpty {
-                    processText()
-                }
+        }
+        .onChange(of: speechManager.isListening) { _, isListening in
+            // When listening stops and there is text, process it automatically.
+            if !isListening && !speechManager.transcribedText.isEmpty {
+                processText()
             }
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("关闭") { dismiss() }
-                }
+        }
+        .onChange(of: speechManager.audioLevel) { _, newLevel in
+            withAnimation(.linear(duration: 0.05)) {
+                displayAmplitude = newLevel
             }
-            .onDisappear {
-                speechManager.stopListening()
+        }
+        .toolbar {
+            ToolbarItem(placement: .cancellationAction) {
+                Button("关闭") { dismiss() }
             }
+        }
+        .onDisappear {
+            speechManager.stopListening()
         }
     }
     
-    func processText() {
+    // MARK: - Computed Properties for UI
+
+    private var titleText: String {
+        if isProcessing {
+            return "正在分析您的指令..."
+        }
+        if speechManager.isListening {
+            // Show transcribed text if available, otherwise show a prompt.
+            return speechManager.transcribedText.isEmpty ? "请讲，我听着呢..." : speechManager.transcribedText
+        }
+        return "语音创建任务"
+    }
+
+    private var subtitleText: String {
+        // Only show the subtitle when idle.
+        if isProcessing || speechManager.isListening || !speechManager.transcribedText.isEmpty {
+            return ""
+        }
+        return "点击下方声波开始或结束"
+    }
+    
+    // MARK: - User Actions
+
+    private func toggleListening() {
+        if speechManager.isListening {
+            speechManager.stopListening()
+        } else {
+            speechManager.startListening()
+        }
+    
+    }
+    
+    private func processText() {
         guard !speechManager.transcribedText.isEmpty else { return }
         
         isProcessing = true
@@ -80,29 +117,38 @@ struct VoiceInputView: View {
         
         deepSeekManager.analyzeText(speechManager.transcribedText) { result in
             isProcessing = false
-            switch result {
-            case .success(let content):
-                // 解析 AI 返回的 "类型:任务名称"
-                let parts = content.split(separator: ":", maxSplits: 1).map { $0.trimmingCharacters(in: .whitespaces) }
-                guard parts.count == 2 else {
-                    aiError = "AI 返回格式不正确: \(content)"
-                    return
+            withAnimation {
+                switch result {
+                case .success(let content):
+                    // Parse the AI response "Type:TaskName"
+                    let parts = content.split(separator: ":", maxSplits: 1).map { $0.trimmingCharacters(in: .whitespaces) }
+                    guard parts.count == 2 else {
+                        aiError = "AI 返回格式不正确: \(content)"
+                        return
+                    }
+                    
+                    let type = parts[0]
+                    let name = parts[1]
+                    
+                    if type == "习惯" {
+                        // Define a palette of attractive colors for new habits.
+                        let colorPalette = ["52D7BF", "F7A541", "F45B69", "3D5A80", "98C1D9", "8E44AD"]
+                        let randomColorHex = colorPalette.randomElement() ?? "52D7BF"
+                        
+                        let newHabit = Habit(name: name, icon: "star.fill", colorHex: randomColorHex)
+                        modelContext.insert(newHabit)
+                        dismiss()
+                    } else if type == "待办" {
+                        let newTodo = TodoItem(title: name)
+                        modelContext.insert(newTodo)
+                        dismiss()
+                    } else {
+                        aiError = "无法识别的任务类型: \(type)"
+                    }
+                    
+                case .failure(let error):
+                    aiError = error.localizedDescription
                 }
-                
-                let type = parts[0]
-                let name = parts[1]
-                
-                if type == "习惯" {
-                    let newHabit = Habit(name: name, icon: "star.fill")
-                    modelContext.insert(newHabit)
-                } else {
-                    let newTodo = TodoItem(title: name)
-                    modelContext.insert(newTodo)
-                }
-                dismiss()
-                
-            case .failure(let error):
-                aiError = error.localizedDescription
             }
         }
     }

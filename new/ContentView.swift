@@ -47,21 +47,29 @@ class Habit {
     @Attribute(.unique) var id: UUID
     var name: String
     var icon: String
+    var colorHex: String? // The color of the habit icon, now optional for migration
     var creationDate: Date
     var isReminderOn: Bool
     var reminderTime: Date
     // Stored property is now Data to be compatible with SwiftData
     private var completionDatesData: Data = Data()
 
-    init(name: String, icon: String, isReminderOn: Bool = false, reminderTime: Date = Date()) {
+    init(name: String, icon: String, colorHex: String = "52D7BF", isReminderOn: Bool = false, reminderTime: Date = Date()) {
         self.id = UUID()
         self.name = name
         self.icon = icon
+        self.colorHex = colorHex
         self.creationDate = .now
         self.isReminderOn = isReminderOn
         self.reminderTime = reminderTime
         // Initialize with an empty array, which gets encoded to data
         self.completionDates = []
+    }
+    
+    // Computed property to get a SwiftUI Color from the hex string
+    var color: Color {
+        // Provide a default color if hex is nil (for migrated data)
+        Color(hex: colorHex ?? "888888") // A neutral gray
     }
     
     // Computed property for easy access and to maintain compatibility with existing code
@@ -589,12 +597,25 @@ struct EditHabitView: View {
                 Section(header: Text("基础信息")) {
                     TextField("习惯名称", text: $habit.name)
                     
-                    Picker("选择图标", selection: $habit.icon) {
-                        ForEach(icons, id: \.self) { icon in
-                            Image(systemName: icon).tag(icon)
+                    // Custom Icon Picker
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 20) {
+                            ForEach(icons, id: \.self) { icon in
+                                Image(systemName: icon)
+                                    .font(.title2)
+                                    .padding(12)
+                                    .background(habit.icon == icon ? habit.color : Color(UIColor.systemGray5))
+                                    .foregroundColor(habit.icon == icon ? .white : .primary)
+                                    .clipShape(Circle())
+                                    .onTapGesture {
+                                        withAnimation {
+                                            habit.icon = icon
+                                        }
+                                    }
+                            }
                         }
+                        .padding(.vertical, 5)
                     }
-                    .pickerStyle(.segmented)
                 }
                 
                 Section(header: Text("提醒设置")) {
@@ -635,5 +656,32 @@ struct EditTodoView: View {
                 }
             }
         }
+    }
+}
+
+// MARK: - Extensions
+extension Color {
+    init(hex: String) {
+        let hex = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
+        var int: UInt64 = 0
+        Scanner(string: hex).scanHexInt64(&int)
+        let a, r, g, b: UInt64
+        switch hex.count {
+        case 3: // RGB (12-bit)
+            (a, r, g, b) = (255, (int >> 8) * 17, (int >> 4 & 0xF) * 17, (int & 0xF) * 17)
+        case 6: // RGB (24-bit)
+            (a, r, g, b) = (255, int >> 16, int >> 8 & 0xFF, int & 0xFF)
+        case 8: // ARGB (32-bit)
+            (a, r, g, b) = (int >> 24, int >> 16 & 0xFF, int >> 8 & 0xFF, int & 0xFF)
+        default:
+            (a, r, g, b) = (255, 0, 0, 0)
+        }
+        self.init(
+            .sRGB,
+            red: Double(r) / 255,
+            green: Double(g) / 255,
+            blue: Double(b) / 255,
+            opacity: Double(a) / 255
+        )
     }
 }
