@@ -1,3 +1,4 @@
+import SwiftUI
 import Foundation
 
 /**
@@ -23,6 +24,12 @@ struct Achievement: Identifiable, Hashable {
      The name of the SF Symbol to be used as an icon.
      */
     let iconName: String
+    
+    /**
+     An array of colors to be used in the badge's gradient. 
+     This allows each achievement to have a unique color scheme.
+     */
+    let colors: [Color]
 }
 
 extension Notification.Name {

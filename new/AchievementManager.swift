@@ -8,11 +8,11 @@ class AchievementManager: ObservableObject {
     
     // 定义所有可能的成就
     let allAchievements: [Achievement] = [
-        Achievement(id: "streak_7", name: "初露锋芒", description: "连续7天完成任意一个习惯", iconName: "flame"),
-        Achievement(id: "streak_30", name: "月度冠军", description: "连续30天完成任意一个习惯", iconName: "crown"),
-        Achievement(id: "perfect_week", name: "完美一周", description: "在一周内完成所有设定的习惯", iconName: "star.circle.fill"),
-        Achievement(id: "first_habit", name: "新的开始", description: "创建你的第一个习惯", iconName: "plus.circle"),
-        Achievement(id: "habit_master", name: "习惯大师", description: "创建超过5个习惯", iconName: "list.bullet.rectangle")
+        Achievement(id: "streak_7", name: "初露锋芒", description: "连续7天完成任意一个习惯", iconName: "flame", colors: [.orange, .red]),
+        Achievement(id: "streak_30", name: "月度冠军", description: "连续30天完成任意一个习惯", iconName: "crown", colors: [.yellow, .orange]),
+        Achievement(id: "perfect_week", name: "完美一周", description: "在一周内完成所有设定的习惯", iconName: "star.circle.fill", colors: [.green, .mint]),
+        Achievement(id: "first_habit", name: "新的开始", description: "创建你的第一个习惯", iconName: "plus.circle", colors: [.blue, .cyan]),
+        Achievement(id: "habit_master", name: "习惯大师", description: "创建超过5个习惯", iconName: "list.bullet.rectangle", colors: [.purple, .pink])
     ]
     
     // 用于存储解锁成就的键

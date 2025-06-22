@@ -168,25 +168,12 @@ struct AchievementsView: View {
                 .fontWeight(.semibold)
                 .padding(.bottom, 5)
             
-            LazyVGrid(columns: columns, spacing: 20) {
+            LazyVGrid(columns: columns, spacing: 30) {
                 ForEach(achievementManager.allAchievements) { achievement in
-                    VStack {
-                        Image(systemName: achievement.iconName)
-                            .font(.largeTitle)
-                            .padding()
-                            .background(achievementManager.unlockedAchievements.contains(achievement.id) ? Color.yellow.opacity(0.3) : Color.gray.opacity(0.2))
-                            .clipShape(Circle())
-                            .foregroundColor(achievementManager.unlockedAchievements.contains(achievement.id) ? .yellow : .gray)
-                        
-                        Text(achievement.name)
-                            .font(.headline)
-                            .foregroundColor(achievementManager.unlockedAchievements.contains(achievement.id) ? .primary : .secondary)
-                        
-                        Text(achievement.description)
-                            .font(.caption)
-                            .multilineTextAlignment(.center)
-                            .foregroundColor(.secondary)
-                    }
+                    AchievementBadgeView(
+                        achievement: achievement,
+                        isUnlocked: achievementManager.unlockedAchievements.contains(achievement.id)
+                    )
                 }
             }
         }
