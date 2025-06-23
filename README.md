@@ -1,6 +1,11 @@
-# Nova 🚀
-
-**English** | [简体中文](./README_zh-CN.md)
+<h1 align="center">Nova 🚀</h1>
+<div align="center">
+<p align="center">
+  <a href="./Chinese.md">简体中文</a>｜
+  <a href="./README.md">English</a>
+</p>
+一款由现代 AI 驱动的智能语音助手应用。Nova 旨在提供无缝且直观的语音交互体验。
+</div>
 
 [![Swift](https://img.shields.io/badge/Swift-5.0-orange.svg)](https://swift.org/)
 [![Platform](https://img.shields.io/badge/platform-iOS%20%7C%20macOS-lightgrey.svg)](https://www.apple.com/swift/)
