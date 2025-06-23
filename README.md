@@ -28,7 +28,7 @@ To get a local copy up and running, follow these simple steps.
 
 1. Clone the repo
    ```sh
-   git clone https://github.com/Jack-sh1/Nova.git
+   gcl git@github.com:Jack-sh1/Nova.git
    ```
 2. Open the project in Xcode.
 3. Build and run the project (Cmd+R).
