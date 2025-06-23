@@ -41,10 +41,6 @@
 * [SwiftUI](https://developer.apple.com/xcode/swiftui/) - 用于构建应用程序的 UI 框架。
 * [DeepSeek API](https://www.deepseek.com/) - 提供核心 AI 和自然语言处理能力。
 
-## 📄 开源许可
-
-本项目采用 MIT 许可证。
-
 ## 🙏 致谢
 
 - [shields.io](https://shields.io/) 提供了精美的徽章。
