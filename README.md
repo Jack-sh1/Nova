@@ -1,5 +1,7 @@
 # Nova 🚀
 
+**English** | [简体中文](./README_zh-CN.md)
+
 [![Swift](https://img.shields.io/badge/Swift-5.0-orange.svg)](https://swift.org/)
 [![Platform](https://img.shields.io/badge/platform-iOS%20%7C%20macOS-lightgrey.svg)](https://www.apple.com/swift/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
