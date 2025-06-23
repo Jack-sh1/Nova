@@ -5,17 +5,17 @@
   <a href="./README.md">English</a>
 </p>
 一款由现代 AI 驱动的智能语音助手应用。Nova 旨在提供无缝且直观的语音交互体验。
-</div>
 
 
-
+<p align="center">
 
 [![Swift](https://img.shields.io/badge/Swift-5.0-orange.svg)](https://swift.org/)
 [![Platform](https://img.shields.io/badge/platform-iOS%20%7C%20macOS-lightgrey.svg)](https://www.apple.com/swift/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![GitHub stars](https://img.shields.io/github/stars/Jack-sh1/Nova?style=social)](https://github.com/Jack-sh1/Nova/stargazers)
+</p>
 
-
+</div>
 
 
 ## ✨ 功能特性
